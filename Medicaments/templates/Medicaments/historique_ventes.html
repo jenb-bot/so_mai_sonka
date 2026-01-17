@@ -1,0 +1,59 @@
+{% extends "Medicaments/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="app-content-header">
+  <h1 class="app-content-headerText">Historique des ventes</h1>
+
+  <form class="d-flex" method="get" style="gap:10px;">
+    <input class="search-bar" type="text" name="q" placeholder="Filtrer (client ou produit)..." value="{{ q|default:'' }}">
+    <button class="app-content-headerButton" type="submit">Rechercher</button>
+    <a class="app-content-headerButton" href="{% url 'historique_ventes' %}">Réinitialiser</a>
+  </form>
+</div>
+
+<div class="products-area-wrapper tableView">
+  <div class="products-header">
+    <div class="product-cell image">Produit</div>
+    <div class="product-cell category">Client</div>
+    <div class="product-cell status-cell">Quantité</div>
+    <div class="product-cell sales">Total</div>
+    <div class="product-cell price">Date</div>
+  </div>
+
+  {% if ventes %}
+    {% for v in ventes %}
+      <div class="products-row">
+        <div class="product-cell image">
+          {% if v.medoc.img %}
+            <img src="{{ v.medoc.img.url }}" alt="product">
+          {% else %}
+            <img src="{% static '1.jpeg' %}" alt="product">
+          {% endif %}
+          <span>{{ v.medoc.name }}</span>
+        </div>
+
+        <div class="product-cell category">
+          {{ v.customer.name }}
+        </div>
+
+        <div class="product-cell status-cell">
+          <span class="status active">{{ v.quantite }}</span>
+        </div>
+
+        <div class="product-cell sales">
+          {{ v.total_amount }} FCFA
+        </div>
+
+        <div class="product-cell price">
+          {{ v.sale_date|date:"d/m/Y H:i" }}
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <h3 style="margin-top:15px;">Aucune vente trouvée.</h3>
+  {% endif %}
+</div>
+
+{% endblock content %}

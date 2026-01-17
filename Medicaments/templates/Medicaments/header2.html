@@ -1,0 +1,54 @@
+<div class="app-content-actions">
+
+  <form class="d-flex" id="searchForm" action="{% url 'recherche' %}" method="get">
+    <input 
+        class="search-bar"
+        id="searchInput"
+        placeholder="Recherchez un produit..."
+        type="text"
+        name="produit"
+        value="{{ query|default:'' }}"
+        autofocus
+    >
+  </form>
+
+  <div class="app-content-actions-wrapper">
+    <div class="filter-button-wrapper">
+      <button class="action-button filter jsFilter" type="button">
+        <span>Filtrer</span>
+      </button>
+    </div>
+
+    <div class="app-content-actions">
+      <button class="action-button list active" title="List View" type="button">List</button>
+      <button class="action-button grid" title="Grid View" type="button">Grid</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ✅ Remet le curseur dans la barre après rechargement
+  window.addEventListener("DOMContentLoaded", () => {
+    const input = document.getElementById("searchInput");
+    if (input) {
+      input.focus();
+      // place le curseur à la fin
+      const v = input.value;
+      input.value = "";
+      input.value = v;
+    }
+  });
+
+  // ✅ Auto-submit avec délai (évite trop de reload)
+  const form = document.getElementById("searchForm");
+  const input = document.getElementById("searchInput");
+  let timer = null;
+
+  input.addEventListener("input", function () {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+          form.submit(); // champ vide => liste complète (grâce à la vue corrigée)
+      }, 400);
+  });
+</script>
