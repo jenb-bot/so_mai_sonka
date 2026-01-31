@@ -9,8 +9,7 @@ from django.db.models import Q
 from django.contrib import messages
 from django.http import HttpResponseRedirect
 from datetime import timedelta
-from django.utils import timezone
-from django.db.models import Sum, Count
+from django.db.models import Sum
 from django.db.models.functions import TruncDate
 
 from .models import Medoc, Customer, Vente, Facture_client, Panier, LignePanier
@@ -23,7 +22,7 @@ from .forms import AjoutProduit, AjoutVente
 class Affichage(LoginRequiredMixin, ListView):
     model = Medoc
     template_name = "Medicaments/home.html"
-    queryset = Medoc.objects.all()
+    queryset = Medoc.objects.filter(is_active=True)  # ✅ n'affiche plus les produits archivés
     context_object_name = "donnees"
 
 
@@ -53,12 +52,22 @@ class UpdateDonnees(LoginRequiredMixin, UpdateView):
 
 
 # -----------------------------
-# SUPPRESSION PRODUIT
+# SUPPRESSION PRODUIT (SOLUTION 3 = ARCHIVAGE)
 # -----------------------------
 class DeleteDonnees(LoginRequiredMixin, DeleteView):
     model = Medoc
     template_name = "Medicaments/delete.html"
     success_url = reverse_lazy("home")
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+
+        # ✅ Soft delete : on archive au lieu de supprimer (évite ProtectedError)
+        self.object.is_active = False
+        self.object.save(update_fields=["is_active"])
+
+        messages.success(request, f"Produit '{self.object.name}' archivé avec succès ✅")
+        return redirect(self.success_url)
 
 
 class edit(LoginRequiredMixin, DetailView):
@@ -74,10 +83,12 @@ class edit(LoginRequiredMixin, DetailView):
 def recherche(request):
     query = request.GET.get("produit", "").strip()
 
+    base_qs = Medoc.objects.filter(is_active=True)
+
     if query == "":
-        donnees = Medoc.objects.all()
+        donnees = base_qs
     else:
-        donnees = Medoc.objects.filter(name__icontains=query)
+        donnees = base_qs.filter(name__icontains=query)
 
     return render(request, "Medicaments/resultat_recheche.html", {
         "donnees": donnees,
@@ -89,7 +100,7 @@ def recherche(request):
 # VENTE SIMPLE (ton existant)
 # -----------------------------
 def VenteProduits(request, id):
-    medoc = get_object_or_404(Medoc, id=id)
+    medoc = get_object_or_404(Medoc, id=id, is_active=True)
     message = None
 
     if request.method == 'POST':
@@ -146,8 +157,7 @@ def Facture(request, sale_id):
     sale = get_object_or_404(Vente, id=sale_id)
     customer = sale.customer
 
-    # ✅ On récupère toutes les ventes de ce client créées autour du même moment
-    # (comme tu crées les lignes du panier en quelques millisecondes)
+    # ✅ regroupe les ventes du panier faites dans la même fenêtre de temps
     t = sale.sale_date
     start = t - timedelta(seconds=3)
     end = t + timedelta(seconds=3)
@@ -179,7 +189,6 @@ def Facture(request, sale_id):
         "sale_date": sale.sale_date,
         "id": sale.id,
 
-        # ✅ nouvelles variables pour le template multi-lignes
         "lignes": lignes,
         "total_amount": total_amount,
 
@@ -226,7 +235,7 @@ def historique_ventes(request):
 
 
 # ==========================================================
-# ✅ PANIER (PRO) : ajout sans redirection + update qté + valider
+# ✅ PANIER : ajout + update qté + valider
 # ==========================================================
 
 @login_required(login_url="login")
@@ -237,25 +246,21 @@ def panier_view(request):
     total_panier = sum((l.prix_unitaire * l.quantite for l in lignes), Decimal("0.00"))
     insuffisant = any(l.quantite > l.medoc.quantite for l in lignes)
 
-
     return render(request, "Medicaments/panier.html", {
         "panier": panier,
         "lignes": lignes,
         "total_panier": total_panier,
-         "insuffisant": insuffisant,
+        "insuffisant": insuffisant,
     })
 
 
 @login_required(login_url="login")
 def ajouter_au_panier(request, medoc_id):
-    """
-    ✅ Ajoute au panier et reste sur la même page (pas de redirection vers /panier/)
-    Par défaut +1.
-    """
-    medoc = get_object_or_404(Medoc, id=medoc_id)
+    # ✅ interdit ajout si produit archivé
+    medoc = get_object_or_404(Medoc, id=medoc_id, is_active=True)
     panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
 
-    ligne, created = LignePanier.objects.get_or_create(
+    ligne, _ = LignePanier.objects.get_or_create(
         panier=panier,
         medoc=medoc,
         defaults={"quantite": 0, "prix_unitaire": medoc.price}
@@ -287,10 +292,9 @@ def update_panier(request):
                 l.delete()
                 continue
 
-            # ✅ BLOQUAGE STOCK
             stock = l.medoc.quantite
             if qte > stock:
-                l.quantite = stock  # ou: on garde l’ancienne quantité, à toi de choisir
+                l.quantite = stock
                 l.save()
                 messages.error(
                     request,
@@ -320,7 +324,6 @@ def checkout_panier(request):
         messages.warning(request, "Panier vide.")
         return redirect("panier")
 
-    # ✅ BLOQUAGE: impossible de continuer si stock insuffisant
     for l in lignes:
         if l.quantite > l.medoc.quantite:
             messages.error(
@@ -341,11 +344,6 @@ def checkout_panier(request):
 @login_required(login_url="login")
 @require_POST
 def valider_panier(request):
-    """
-    ✅ Valide la vente : vérifie stock, crée Ventes (une par ligne),
-    puis ferme le panier.
-    Ensuite redirige vers facture (pour l’instant: facture de la dernière vente).
-    """
     panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
     lignes = panier.lignes.select_related("medoc").all()
 
@@ -362,7 +360,6 @@ def valider_panier(request):
 
     customer, _ = Customer.objects.get_or_create(name=customer_name)
 
-    # ✅ Vérif stock avant tout
     for l in lignes:
         if l.quantite > l.medoc.quantite:
             messages.error(request, f"Stock insuffisant pour {l.medoc.name} (dispo: {l.medoc.quantite}).")
@@ -370,7 +367,6 @@ def valider_panier(request):
 
     last_sale_id = None
 
-    # ✅ Création ventes + décrément stock
     for l in lignes:
         total_amount = Decimal(l.prix_unitaire) * Decimal(l.quantite)
 
@@ -392,12 +388,12 @@ def valider_panier(request):
             medoc=l.medoc,
         )
 
-    # fermer panier
     panier.is_active = False
     panier.save()
 
     messages.success(request, "Vente validée ✅")
     return redirect("facture", sale_id=last_sale_id)
+
 
 @login_required(login_url="login")
 def vider_panier(request):
@@ -407,6 +403,10 @@ def vider_panier(request):
         messages.success(request, "Panier vidé avec succès 🗑️")
     return redirect("panier")
 
+
+# -----------------------------
+# DASHBOARD
+# -----------------------------
 @login_required(login_url="login")
 def dashboard(request):
     date_debut = request.GET.get("date_debut")
@@ -415,11 +415,8 @@ def dashboard(request):
     ventes = Vente.objects.all()
 
     if date_debut and date_fin:
-        ventes = ventes.filter(
-            sale_date__date__range=[date_debut, date_fin]
-        )
+        ventes = ventes.filter(sale_date__date__range=[date_debut, date_fin])
 
-    # KPI principaux
     total_ca = ventes.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
     total_quantite = ventes.aggregate(Sum("quantite"))["quantite__sum"] or 0
     total_ventes = ventes.count()
@@ -428,17 +425,14 @@ def dashboard(request):
     if total_ventes > 0:
         panier_moyen = total_ca / total_ventes
 
-    # Top produits
     top_produits = (
         ventes.values("medoc__name")
         .annotate(total_vendu=Sum("quantite"))
         .order_by("-total_vendu")[:5]
     )
 
-    # Stock faible
-    stock_critique = Medoc.objects.filter(quantite__lte=5)
+    stock_critique = Medoc.objects.filter(is_active=True, quantite__lte=5)
 
-    # Graph ventes par jour
     ventes_par_jour = (
         ventes
         .annotate(jour=TruncDate("sale_date"))

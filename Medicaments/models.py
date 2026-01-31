@@ -17,6 +17,7 @@ class Medoc(models.Model):
     date_ajout = models.DateField(auto_now_add=True)
     date_expiration = models.DateField()
     img = models.ImageField(null=True, blank=True, upload_to='media/')
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['-date_ajout']
