@@ -1,33 +1,37 @@
-from django.shortcuts import render, get_object_or_404 , redirect
+from django.shortcuts import render, get_object_or_404, redirect
 from decimal import Decimal
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-
+from django.views.decorators.http import require_POST
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
+from django.db.models import Q
+from django.contrib import messages
+from django.http import HttpResponseRedirect
+from datetime import timedelta
+from django.utils import timezone
+from django.db.models import Sum, Count
+from django.db.models.functions import TruncDate
 
-from .models import *
-from .forms import AjoutProduit
+from .models import Medoc, Customer, Vente, Facture_client, Panier, LignePanier
 from .forms import AjoutProduit, AjoutVente
-
 
 
 # -----------------------------
 # LISTE / AFFICHAGE DES PRODUITS
 # -----------------------------
-
-class Affichage(LoginRequiredMixin,ListView):
+class Affichage(LoginRequiredMixin, ListView):
     model = Medoc
     template_name = "Medicaments/home.html"
     queryset = Medoc.objects.all()
-    context_object_name = "donnees"  # dans le template: {% for n in donnees %}
+    context_object_name = "donnees"
 
-#affichage apres la page de connexion
 
 @login_required(login_url='login')
 def Acc(request):
-
     return render(request, 'Medicaments/acc.html')
+
+
 # -----------------------------
 # AJOUT PRODUIT
 # -----------------------------
@@ -58,11 +62,9 @@ class DeleteDonnees(LoginRequiredMixin, DeleteView):
 
 
 class edit(LoginRequiredMixin, DetailView):
-
     model = Medoc
     template_name = 'Medicaments/detail.html'
     context_object_name = 'n'
-
 
 
 # -----------------------------
@@ -72,7 +74,6 @@ class edit(LoginRequiredMixin, DetailView):
 def recherche(request):
     query = request.GET.get("produit", "").strip()
 
-    # ✅ Si champ vide : on retourne la liste complète
     if query == "":
         donnees = Medoc.objects.all()
     else:
@@ -82,8 +83,11 @@ def recherche(request):
         "donnees": donnees,
         "query": query
     })
-# fonction pour la vente
 
+
+# -----------------------------
+# VENTE SIMPLE (ton existant)
+# -----------------------------
 def VenteProduits(request, id):
     medoc = get_object_or_404(Medoc, id=id)
     message = None
@@ -98,7 +102,6 @@ def VenteProduits(request, id):
                 message = "La quantité demandée dépasse le stock disponible !"
             else:
                 customer, _ = Customer.objects.get_or_create(name=customer_name)
-
                 total_amount = Decimal(medoc.price) * Decimal(quantite)
 
                 sale = Vente.objects.create(
@@ -124,71 +127,86 @@ def VenteProduits(request, id):
         'message': message
     })
 
+
 def SaveRecu(request, id):
-
     vente = get_object_or_404(Vente, id=id)
-    customer = vente.customer
-    quantite = vente.quantite
-    total_amount = vente.total_amount
-    produit = vente.produit
 
-    recu = Facture_Client(
-        customer = customer,
-        quantite = quantite,
-        total_amount = total_amount,
-        produit = produit
+    Facture_client.objects.create(
+        customer=vente.customer,
+        quantite=vente.quantite,
+        vente=vente,
+        medoc=vente.medoc,
     )
 
-    recu.save()
+    return redirect('facture', sale_id=vente.id)
 
-    return redirect('facture', sale_id = id)
-
-
-#  fonction pour afficher les données de la vente
 
 def Facture(request, sale_id):
-
+    # Vente "référence" (la dernière vente créée)
     sale = get_object_or_404(Vente, id=sale_id)
-    
     customer = sale.customer
-    produit = sale.medoc        # ✅ on récupère le medoc vendu
-    quantite = sale.quantite
-    sale_date = sale.sale_date
-    total_amount = sale.total_amount
+
+    # ✅ On récupère toutes les ventes de ce client créées autour du même moment
+    # (comme tu crées les lignes du panier en quelques millisecondes)
+    t = sale.sale_date
+    start = t - timedelta(seconds=3)
+    end = t + timedelta(seconds=3)
+
+    ventes = (
+        Vente.objects
+        .filter(customer=customer, sale_date__range=(start, end))
+        .select_related("medoc")
+        .order_by("id")
+    )
+
+    lignes = []
+    total_amount = Decimal("0.00")
+
+    for v in ventes:
+        pu = v.medoc.price
+        montant = Decimal(pu) * Decimal(v.quantite)
+        total_amount += montant
+        lignes.append({
+            "produit": v.medoc,
+            "quantite": v.quantite,
+            "prix_unitaire": pu,
+            "montant": montant,
+        })
 
     context = {
-        'sale': sale,
-        'customer': customer,
-        'produit': produit,          # ✅ variable bien définie
-        'quantite': quantite,
-        'sale_date': sale_date,
-        'id': sale.id,
-        'prix_unitaire': produit.price,   # ✅ accès correct
-        'total_amount': total_amount ,
-        # ✅ Infos “ticket” (tu peux les rendre dynamiques plus tard)
+        "sale": sale,
+        "customer": customer,
+        "sale_date": sale.sale_date,
+        "id": sale.id,
+
+        # ✅ nouvelles variables pour le template multi-lignes
+        "lignes": lignes,
+        "total_amount": total_amount,
+
         "pharmacie_nom": "SO MAI SONKA",
         "pharmacie_adresse": "ADRESSE ICI ",
         "pharmacie_ville": "DIFFA",
         "pharmacie_tel": "+227 XX XX XX XX",
         "pharmacie_nif": "35291/S",
         "pharmacie_rccm": "RCCM-NE-DIF-2025-A-242",
-        "vendeur": request.user.username,   # ou un champ “vendeur” si tu veux
-        "caissier": request.user.username,  # idem
+        "vendeur": request.user.username,
+        "caissier": request.user.username,
         "mode_paiement": "Espèce",
     }
 
-    return render(request, 'Medicaments/facture_client.html', context)
+    return render(request, "Medicaments/facture_client.html", context)
+
 
 class vente(ListView):
     template_name = 'Medicaments/vente.html'
     queryset = Vente.objects.all()
 
+
 def recu(request):
     recus = Facture_client.objects.all()
-    
-    return render (request, 'Medicaments/recu.html',{'recus': recus})
+    return render(request, 'Medicaments/recu.html', {'recus': recus})
 
-#historique des ventes
+
 @login_required(login_url="login")
 def historique_ventes(request):
     q = request.GET.get("q", "").strip()
@@ -201,8 +219,242 @@ def historique_ventes(request):
             Q(customer__name__icontains=q)
         )
 
-    context = {
+    return render(request, "Medicaments/historique_ventes.html", {
         "ventes": ventes,
         "q": q,
+    })
+
+
+# ==========================================================
+# ✅ PANIER (PRO) : ajout sans redirection + update qté + valider
+# ==========================================================
+
+@login_required(login_url="login")
+def panier_view(request):
+    panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
+    lignes = panier.lignes.select_related("medoc").all()
+
+    total_panier = sum((l.prix_unitaire * l.quantite for l in lignes), Decimal("0.00"))
+    insuffisant = any(l.quantite > l.medoc.quantite for l in lignes)
+
+
+    return render(request, "Medicaments/panier.html", {
+        "panier": panier,
+        "lignes": lignes,
+        "total_panier": total_panier,
+         "insuffisant": insuffisant,
+    })
+
+
+@login_required(login_url="login")
+def ajouter_au_panier(request, medoc_id):
+    """
+    ✅ Ajoute au panier et reste sur la même page (pas de redirection vers /panier/)
+    Par défaut +1.
+    """
+    medoc = get_object_or_404(Medoc, id=medoc_id)
+    panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
+
+    ligne, created = LignePanier.objects.get_or_create(
+        panier=panier,
+        medoc=medoc,
+        defaults={"quantite": 0, "prix_unitaire": medoc.price}
+    )
+
+    ligne.prix_unitaire = medoc.price
+    ligne.quantite += 1
+    ligne.save()
+
+    messages.success(request, f"{medoc.name} ajouté au panier ✅")
+    return HttpResponseRedirect(request.META.get("HTTP_REFERER", reverse("home")))
+
+
+@login_required(login_url="login")
+@require_POST
+def update_panier(request):
+    panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
+    lignes = panier.lignes.select_related("medoc").all()
+
+    for l in lignes:
+        key = f"qte_{l.id}"
+        if key in request.POST:
+            try:
+                qte = int(request.POST.get(key, l.quantite))
+            except ValueError:
+                qte = l.quantite
+
+            if qte <= 0:
+                l.delete()
+                continue
+
+            # ✅ BLOQUAGE STOCK
+            stock = l.medoc.quantite
+            if qte > stock:
+                l.quantite = stock  # ou: on garde l’ancienne quantité, à toi de choisir
+                l.save()
+                messages.error(
+                    request,
+                    f"Stock insuffisant pour {l.medoc.name}. Stock dispo: {stock}. Quantité ajustée."
+                )
+            else:
+                l.quantite = qte
+                l.prix_unitaire = l.medoc.price
+                l.save()
+
+    return redirect("panier")
+
+
+@login_required(login_url="login")
+def supprimer_ligne_panier(request, ligne_id):
+    panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
+    LignePanier.objects.filter(id=ligne_id, panier=panier).delete()
+    return redirect("panier")
+
+
+@login_required(login_url="login")
+def checkout_panier(request):
+    panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
+    lignes = panier.lignes.select_related("medoc").all()
+
+    if not lignes.exists():
+        messages.warning(request, "Panier vide.")
+        return redirect("panier")
+
+    # ✅ BLOQUAGE: impossible de continuer si stock insuffisant
+    for l in lignes:
+        if l.quantite > l.medoc.quantite:
+            messages.error(
+                request,
+                f"Stock insuffisant pour {l.medoc.name} (dispo: {l.medoc.quantite}). Corrige le panier."
+            )
+            return redirect("panier")
+
+    total_panier = sum((l.prix_unitaire * l.quantite for l in lignes), Decimal("0.00"))
+
+    return render(request, "Medicaments/checkout.html", {
+        "panier": panier,
+        "lignes": lignes,
+        "total_panier": total_panier,
+    })
+
+
+@login_required(login_url="login")
+@require_POST
+def valider_panier(request):
+    """
+    ✅ Valide la vente : vérifie stock, crée Ventes (une par ligne),
+    puis ferme le panier.
+    Ensuite redirige vers facture (pour l’instant: facture de la dernière vente).
+    """
+    panier, _ = Panier.objects.get_or_create(user=request.user, is_active=True)
+    lignes = panier.lignes.select_related("medoc").all()
+
+    if not lignes.exists():
+        messages.warning(request, "Panier vide.")
+        return redirect("panier")
+
+    customer_name = request.POST.get("customer", "").strip()
+    mode_paiement = request.POST.get("mode_paiement", "Espèce").strip() or "Espèce"
+
+    if not customer_name:
+        messages.error(request, "Veuillez saisir le nom du client.")
+        return redirect("checkout_panier")
+
+    customer, _ = Customer.objects.get_or_create(name=customer_name)
+
+    # ✅ Vérif stock avant tout
+    for l in lignes:
+        if l.quantite > l.medoc.quantite:
+            messages.error(request, f"Stock insuffisant pour {l.medoc.name} (dispo: {l.medoc.quantite}).")
+            return redirect("panier")
+
+    last_sale_id = None
+
+    # ✅ Création ventes + décrément stock
+    for l in lignes:
+        total_amount = Decimal(l.prix_unitaire) * Decimal(l.quantite)
+
+        sale = Vente.objects.create(
+            medoc=l.medoc,
+            quantite=l.quantite,
+            customer=customer,
+            total_amount=total_amount
+        )
+        last_sale_id = sale.id
+
+        l.medoc.quantite -= l.quantite
+        l.medoc.save()
+
+        Facture_client.objects.create(
+            customer=customer,
+            quantite=l.quantite,
+            vente=sale,
+            medoc=l.medoc,
+        )
+
+    # fermer panier
+    panier.is_active = False
+    panier.save()
+
+    messages.success(request, "Vente validée ✅")
+    return redirect("facture", sale_id=last_sale_id)
+
+@login_required(login_url="login")
+def vider_panier(request):
+    panier = Panier.objects.filter(user=request.user, is_active=True).first()
+    if panier:
+        panier.lignes.all().delete()
+        messages.success(request, "Panier vidé avec succès 🗑️")
+    return redirect("panier")
+
+@login_required(login_url="login")
+def dashboard(request):
+    date_debut = request.GET.get("date_debut")
+    date_fin = request.GET.get("date_fin")
+
+    ventes = Vente.objects.all()
+
+    if date_debut and date_fin:
+        ventes = ventes.filter(
+            sale_date__date__range=[date_debut, date_fin]
+        )
+
+    # KPI principaux
+    total_ca = ventes.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+    total_quantite = ventes.aggregate(Sum("quantite"))["quantite__sum"] or 0
+    total_ventes = ventes.count()
+
+    panier_moyen = 0
+    if total_ventes > 0:
+        panier_moyen = total_ca / total_ventes
+
+    # Top produits
+    top_produits = (
+        ventes.values("medoc__name")
+        .annotate(total_vendu=Sum("quantite"))
+        .order_by("-total_vendu")[:5]
+    )
+
+    # Stock faible
+    stock_critique = Medoc.objects.filter(quantite__lte=5)
+
+    # Graph ventes par jour
+    ventes_par_jour = (
+        ventes
+        .annotate(jour=TruncDate("sale_date"))
+        .values("jour")
+        .annotate(total=Sum("total_amount"))
+        .order_by("jour")
+    )
+
+    context = {
+        "total_ca": total_ca,
+        "total_quantite": total_quantite,
+        "total_ventes": total_ventes,
+        "panier_moyen": panier_moyen,
+        "top_produits": top_produits,
+        "stock_critique": stock_critique,
+        "ventes_par_jour": list(ventes_par_jour),
     }
-    return render(request, "Medicaments/historique_ventes.html", context)
+
+    return render(request, "Medicaments/dashboard.html", context)

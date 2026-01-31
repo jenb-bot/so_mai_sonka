@@ -1,4 +1,120 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&display=swap");
+
+/* 1) Autoriser le scroll global */
+html, body {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-y: auto !important;
+}
+
+/* 2) Ton conteneur principal ne doit pas couper le contenu */
+.app-container{
+ 
+   display: flex;
+  width: 100%
+}
+
+/* 3) Le contenu doit scroller, pas être bloqué */
+.app-content{
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* 4) Si tu as une sidebar fixe, garde le scroll sur le content */
+@media (max-width: 900px){
+  .app-container{
+    display: block !important; /* évite les coupures avec flex */
+  }
+  .app-content{
+    min-height: auto !important;
+    padding-bottom: 20px;
+  }
+}
+
+.dash-box{
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 16px;
+  color: #fff;
+  margin-top: 14px;
+}
+.dash-box li{ color: rgba(255,255,255,.8); }
+
+/* ===================== */
+/* IMPRESSION THERMIQUE */
+/* ===================== */
+@media print {
+
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html, body {
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* Cacher tout */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Afficher uniquement la facture */
+  main, main * {
+    visibility: visible;
+  }
+
+  main {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Masquer bouton imprimer */
+  #print-button {
+    display: none !important;
+  }
+
+  /* Police ticket */
+  main, main table, main th, main td, main p, main span, main div {
+    font-family: Arial, sans-serif !important;
+    font-size: 12px !important;
+    color: #000 !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    padding: 2px 0 !important;
+    text-align: left !important;
+  }
+
+  img {
+    max-width: 60px !important;
+    display: block !important;
+    margin: 0 auto 6px auto !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+}
+ 
+
 * {
   box-sizing: border-box;
 }
@@ -617,3 +733,25 @@ body {
 .qty-badge.red { background-color: red; }
 .qty-badge.orange { background-color: orange; }
 .qty-badge.green { background-color: green; }
+
+/* Patch mode clair : rend tout lisible sans tout modifier */
+:root.light .dash-title,
+:root.light .dash-card,
+:root.light .dash-box,
+:root.light .dash-chart,
+:root.light .dash-muted,
+:root.light .dash-list li{
+  color: var(--dash-text) !important;
+}
+
+:root.light .dash-card,
+:root.light .dash-box,
+:root.light .dash-chart{
+  background: var(--dash-card-bg) !important;
+  border-color: var(--dash-border) !important;
+}
+
+:root.light .dash-card .label,
+:root.light .dash-muted{
+  color: var(--dash-muted) !important;
+}

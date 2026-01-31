@@ -1,0 +1,451 @@
+{% extends "Medicaments/base.html" %}
+{% load static %}
+{% block content %}
+
+<style>
+  /* ===== DASHBOARD (plus coloré, isolé) ===== */
+  :root{
+    --d-bg: rgba(255,255,255,.05);
+    --d-border: rgba(255,255,255,.10);
+    --d-text: #ffffff;
+    --d-muted: rgba(255,255,255,.72);
+    --d-muted2: rgba(255,255,255,.55);
+
+    --c-blue: #2f81ff;
+    --c-cyan: #00d4ff;
+    --c-green: #29d980;
+    --c-orange: #ffb020;
+    --c-red: #ff4d4d;
+    --c-purple: #a855f7;
+  }
+
+  /* ✅ Mode clair : dashboard lisible */
+  :root.light{
+    --d-bg: rgba(16,24,39,.04);
+    --d-border: rgba(16,24,39,.10);
+    --d-text: #101827;
+    --d-muted: rgba(16,24,39,.72);
+    --d-muted2: rgba(16,24,39,.55);
+  }
+
+  .dash-wrap{ width:100%; max-width:1400px; margin:0 auto; }
+
+  .dash-title{
+    color: var(--d-text);
+    font-weight: 900;
+    font-size: 34px;
+    margin: 6px 0 16px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    letter-spacing:.2px;
+  }
+  .dash-title .icon{
+    width:44px;height:44px;
+    border-radius: 14px;
+    display:grid; place-items:center;
+    background: linear-gradient(135deg, rgba(47,129,255,.25), rgba(168,85,247,.20));
+    border: 1px solid rgba(47,129,255,.25);
+    box-shadow: 0 10px 30px rgba(0,0,0,.20);
+  }
+
+  .dash-filter{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:18px;
+  }
+  .dash-filter input[type="date"]{
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    color: var(--d-text);
+    padding: 10px 12px;
+    border-radius: 12px;
+    outline:none;
+    min-width: 180px;
+  }
+  :root.light .dash-filter input[type="date"]{
+    background: #fff;
+    border-color: rgba(16,24,39,.15);
+  }
+  .dash-filter input[type="date"]:focus{
+    border-color: rgba(47,129,255,.65);
+    box-shadow: 0 0 0 3px rgba(47,129,255,.18);
+  }
+
+  .btn-dash{
+    border-radius: 12px !important;
+    padding: 10px 16px !important;
+    font-weight: 800 !important;
+    letter-spacing:.2px;
+    border:none !important;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .btn-dash.primary{
+    background: linear-gradient(135deg, var(--c-blue), var(--c-cyan)) !important;
+    color:#fff !important;
+    box-shadow: 0 10px 25px rgba(47,129,255,.20);
+  }
+  .btn-dash.ghost{
+    background: transparent !important;
+    border: 1px solid rgba(255,255,255,.20) !important;
+    color: var(--d-text) !important;
+  }
+  :root.light .btn-dash.ghost{
+    border-color: rgba(16,24,39,.15) !important;
+    background: rgba(16,24,39,.03) !important;
+  }
+
+  .dash-grid{
+    display:grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap:14px;
+    margin-bottom:18px;
+  }
+  @media(max-width:1100px){ .dash-grid{ grid-template-columns: repeat(2,1fr);} }
+  @media(max-width:650px){ .dash-grid{ grid-template-columns:1fr;} }
+
+  .dash-card{
+    position:relative;
+    background: var(--d-bg);
+    border: 1px solid var(--d-border);
+    border-radius: 16px;
+    padding: 16px;
+    color: var(--d-text);
+    overflow:hidden;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .dash-card:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(0,0,0,.18);
+  }
+  .dash-card:before{
+    content:"";
+    position:absolute; inset:-2px;
+    background: radial-gradient(circle at 20% 15%, rgba(47,129,255,.20), transparent 55%),
+                radial-gradient(circle at 90% 0%, rgba(168,85,247,.18), transparent 55%),
+                radial-gradient(circle at 90% 100%, rgba(41,217,128,.14), transparent 55%);
+    pointer-events:none;
+  }
+  .dash-card .topline{
+    position:relative;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+  }
+  .dash-card .chip{
+    position:relative;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:900;
+    color:#fff;
+    border:1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.08);
+  }
+  :root.light .dash-card .chip{
+    color:#101827;
+    border-color: rgba(16,24,39,.10);
+    background: rgba(16,24,39,.05);
+  }
+  .dash-card .label{ position:relative; color: var(--d-muted); font-weight:800; font-size:13px; margin:0; }
+  .dash-card .value{ position:relative; font-size:34px; font-weight:950; margin:6px 0 0; line-height:1.1; }
+  .dash-card .sub{ position:relative; color: var(--d-muted2); margin-top:8px; font-size:12px; }
+
+  .accent-blue .chip{ background: rgba(47,129,255,.20); border-color: rgba(47,129,255,.35); }
+  .accent-green .chip{ background: rgba(41,217,128,.18); border-color: rgba(41,217,128,.35); }
+  .accent-purple .chip{ background: rgba(168,85,247,.18); border-color: rgba(168,85,247,.35); }
+  .accent-orange .chip{ background: rgba(255,176,32,.18); border-color: rgba(255,176,32,.35); }
+
+  .dash-sections{
+    display:grid;
+    grid-template-columns: 1.35fr .95fr;
+    gap:14px;
+    margin-top:14px;
+  }
+  @media(max-width:1100px){ .dash-sections{ grid-template-columns:1fr; } }
+
+  .dash-panel{
+    background: var(--d-bg);
+    border: 1px solid var(--d-border);
+    border-radius: 16px;
+    padding: 16px;
+    color: var(--d-text);
+  }
+  .panel-title{
+    display:flex; align-items:center; gap:10px;
+    margin:0 0 10px;
+    font-weight:950;
+    font-size:18px;
+  }
+  .panel-title .mini{
+    width:34px; height:34px;
+    border-radius:12px;
+    display:grid; place-items:center;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.12);
+  }
+  :root.light .panel-title .mini{
+    background: rgba(16,24,39,.05);
+    border-color: rgba(16,24,39,.12);
+  }
+
+  .dash-muted{ color: var(--d-muted); font-size:13px; margin-bottom:10px; }
+
+  /* ✅ Important : Chart canvas prend la hauteur */
+  .chart-box{ height: 320px; }
+  @media(max-width:650px){ .chart-box{ height: 260px; } }
+  .chart-box canvas{ width:100% !important; height:100% !important; }
+
+  .dash-list{ margin:0; padding-left:18px; }
+  .dash-list li{ color: var(--d-muted); margin-bottom:8px; }
+
+  .badge-red{
+    display:inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 900;
+    color:#fff;
+    background: linear-gradient(135deg, var(--c-red), #ff7a7a);
+  }
+
+  .empty-box{
+    background: rgba(255,255,255,.04);
+    border: 1px dashed rgba(255,255,255,.14);
+    border-radius: 14px;
+    padding: 14px;
+    color: var(--d-muted);
+  }
+  :root.light .empty-box{
+    background: rgba(16,24,39,.03);
+    border-color: rgba(16,24,39,.12);
+  }
+</style>
+
+<div class="dash-wrap">
+
+  <div class="dash-title">
+    <span class="icon">📊</span>
+    <span>Dashboard</span>
+  </div>
+
+  <!-- FILTRE -->
+  <form method="GET" class="dash-filter">
+    <input type="date" name="date_debut" value="{{ request.GET.date_debut }}">
+    <input type="date" name="date_fin" value="{{ request.GET.date_fin }}">
+    <button class="btn-dash primary" type="submit">FILTRER</button>
+    <a class="btn-dash ghost" href="{% url 'dashboard' %}">RÉINITIALISER</a>
+  </form>
+
+  <!-- KPI -->
+  <div class="dash-grid">
+    <div class="dash-card accent-blue">
+      <div class="topline"><p class="label">Chiffre d'affaires</p><span class="chip">CA</span></div>
+      <p class="value">{{ total_ca|floatformat:2 }} <span style="font-size:16px;font-weight:900;opacity:.9;">FCFA</span></p>
+      <div class="sub">Somme des ventes sur la période</div>
+    </div>
+
+    <div class="dash-card accent-green">
+      <div class="topline"><p class="label">Produits vendus</p><span class="chip">QTE</span></div>
+      <p class="value">{{ total_quantite }}</p>
+      <div class="sub">Quantités totales vendues</div>
+    </div>
+
+    <div class="dash-card accent-purple">
+      <div class="topline"><p class="label">Nombre de ventes</p><span class="chip">TICKETS</span></div>
+      <p class="value">{{ total_ventes }}</p>
+      <div class="sub">Tickets / opérations</div>
+    </div>
+
+    <div class="dash-card accent-orange">
+      <div class="topline"><p class="label">Panier moyen</p><span class="chip">MOY</span></div>
+      <p class="value">{{ panier_moyen|floatformat:2 }}</p>
+      <div class="sub">CA / nombre de ventes</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="dash-sections">
+
+    <div class="dash-panel">
+      <div class="panel-title"><span class="mini">📈</span><span>Ventes par jour</span></div>
+      <div class="dash-muted">Courbe du chiffre d’affaires journalier</div>
+
+      <div class="chart-box">
+        <canvas id="chartVentesJour"></canvas>
+      </div>
+      <div id="emptyJour" class="empty-box" style="display:none;margin-top:10px;">
+        Aucune donnée à afficher sur cette période.
+      </div>
+    </div>
+
+    <div class="dash-panel">
+      <div class="panel-title"><span class="mini">📊</span><span>Top produits</span></div>
+      <div class="dash-muted">Top 5 (quantités vendues)</div>
+
+      <div class="chart-box">
+        <canvas id="chartTopProduits"></canvas>
+      </div>
+      <div id="emptyTop" class="empty-box" style="display:none;margin-top:10px;">
+        Aucune vente à afficher sur cette période.
+      </div>
+    </div>
+
+  </div>
+
+  <!-- LISTES -->
+  <div class="dash-sections" style="margin-top:14px;">
+
+    <div class="dash-panel">
+      <div class="panel-title"><span class="mini">🔥</span><span>Top 5 produits</span></div>
+      {% if top_produits %}
+        <ol class="dash-list">
+          {% for p in top_produits %}
+            <li><strong>{{ p.medoc__name }}</strong> — {{ p.total_vendu }}</li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <div class="empty-box">Aucune vente sur la période sélectionnée.</div>
+      {% endif %}
+    </div>
+
+    <div class="dash-panel">
+      <div class="panel-title"><span class="mini">⚠️</span><span>Stock critique</span></div>
+      {% if stock_critique %}
+        <ul class="dash-list">
+          {% for s in stock_critique %}
+            <li>{{ s.name }} — <span class="badge-red">{{ s.quantite }}</span></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-box">Aucun produit en stock critique.</div>
+      {% endif %}
+    </div>
+
+  </div>
+
+</div>
+
+{# ✅ JSON safe : évite les bugs d'affichage #}
+{{ ventes_par_jour|json_script:"ventes-par-jour-data" }}
+
+<script id="top-produits-data" type="application/json">
+[
+  {% for p in top_produits %}
+    {"name":"{{ p.medoc__name|escapejs }}","qte":{{ p.total_vendu|default:0 }} }{% if not forloop.last %},{% endif %}
+  {% endfor %}
+]
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+  // ===== Lecture JSON =====
+  const ventesParJour = JSON.parse(document.getElementById('ventes-par-jour-data').textContent || "[]");
+  const topProduits = JSON.parse(document.getElementById('top-produits-data').textContent || "[]");
+
+  // ===== Couleurs axes selon thème =====
+  const isLight = document.documentElement.classList.contains("light");
+  const axisColor = isLight ? "rgba(16,24,39,.80)" : "rgba(255,255,255,.85)";
+  const gridColor = isLight ? "rgba(16,24,39,.10)" : "rgba(255,255,255,.08)";
+  const legendColor = axisColor;
+
+  const showIfEmpty = (id, isEmpty) => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = isEmpty ? "block" : "none";
+  };
+
+  // ===== 1) Courbe ventes par jour =====
+  const labelsJour = ventesParJour.map(x => x.jour);
+  const dataJour   = ventesParJour.map(x => x.total);
+
+  const ctx1 = document.getElementById('chartVentesJour');
+
+  if (!labelsJour.length) {
+    showIfEmpty("emptyJour", true);
+  } else {
+    showIfEmpty("emptyJour", false);
+
+    new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: labelsJour,
+        datasets: [{
+          label: "Chiffre d'affaires",
+          data: dataJour,
+          tension: 0.35,
+          fill: true,
+          borderWidth: 2,
+          pointRadius: 2,
+          backgroundColor: "rgba(47,129,255,.18)",
+          borderColor: "rgba(47,129,255,.95)"
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: legendColor } },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          x: { ticks: { color: axisColor }, grid: { color: gridColor } },
+          y: { ticks: { color: axisColor }, grid: { color: gridColor }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // ===== 2) Barres top produits =====
+  const ctx2 = document.getElementById('chartTopProduits');
+
+  if (!topProduits.length) {
+    showIfEmpty("emptyTop", true);
+  } else {
+    showIfEmpty("emptyTop", false);
+
+    new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: topProduits.map(p => p.name),
+        datasets: [{
+          label: "Quantités vendues",
+          data: topProduits.map(p => p.qte),
+          borderWidth: 1,
+          backgroundColor: [
+            "rgba(0,212,255,.55)",
+            "rgba(47,129,255,.55)",
+            "rgba(168,85,247,.55)",
+            "rgba(41,217,128,.55)",
+            "rgba(255,176,32,.55)"
+          ],
+          borderColor: [
+            "rgba(0,212,255,.95)",
+            "rgba(47,129,255,.95)",
+            "rgba(168,85,247,.95)",
+            "rgba(41,217,128,.95)",
+            "rgba(255,176,32,.95)"
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: legendColor } }
+        },
+        scales: {
+          x: { ticks: { color: axisColor }, grid: { color: gridColor } },
+          y: { ticks: { color: axisColor }, grid: { color: gridColor }, beginAtZero: true }
+        }
+      }
+    });
+  }
+</script>
+
+{% endblock %}

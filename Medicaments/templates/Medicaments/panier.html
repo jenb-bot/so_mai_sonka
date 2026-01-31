@@ -1,0 +1,81 @@
+{% extends "Medicaments/base.html" %}
+{% block content %}
+
+
+<form method="POST" action="{% url 'update_panier' %}">
+  {% csrf_token %}
+
+  <div class="products-area-wrapper tableView">
+
+    <div class="products-header">
+      <div class="product-cell image">Produit</div>
+      <div class="product-cell sales">PU</div>
+      <div class="product-cell stock">Qté</div>
+      <div class="product-cell price">Total</div>
+      <div class="product-cell price">Action</div>
+    </div>
+
+    {% for l in lignes %}
+    <div class="products-row">
+
+      <div class="product-cell image">
+        {% if l.medoc.img %}
+          <img src="{{ l.medoc.img.url }}" alt="product">
+        {% endif %}
+        <span>{{ l.medoc.name }}</span>
+      </div>
+
+      <div class="product-cell sales">
+        {{ l.prix_unitaire|floatformat:2 }}
+      </div>
+
+      <div class="product-cell stock">
+        <input
+          type="number"
+          min="0"
+          name="qte_{{ l.id }}"
+          value="{{ l.quantite }}"
+          class="form-control form-control-sm"
+          style="max-width:90px;"
+        >
+      </div>
+
+    <div class="product-cell price">
+  {{ l.prix_unitaire|floatformat:2 }} x {{ l.quantite }} =
+  <b>{{ l.total_ligne|floatformat:2 }}</b>
+</div>
+
+      <div class="product-cell price">
+        <a href="{% url 'supprimer_ligne_panier' l.id %}" class="btn btn-danger btn-sm" title="Retirer">
+          <i class="bi bi-trash3"></i>
+        </a>
+      </div>
+
+    </div>
+    {% empty %}
+      <div style="padding:20px; color:#999;">Panier vide.</div>
+    {% endfor %}
+
+  </div>
+
+  <div style="display:flex; justify-content:flex-end; margin-top:15px; gap:10px; align-items:center;">
+    <button type="submit" class="btn btn-primary">
+      Mettre à jour
+    </button>
+    <a href="{% url 'vider_panier' %}" class="btn btn-danger">
+   Vider le panier
+</a>
+
+    <div class="btn btn-dark" style="cursor:default;">
+      Total : <b>{{ total_panier|floatformat:2 }}</b>
+    </div>
+
+    <a href="{% url 'checkout_panier' %}" class="btn btn-success">
+      Valider la vente
+    </a>
+    
+
+  </div>
+</form>
+
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "Medicaments/base.html" %}
+{% block content %}
+
+<div class="card p-3">
+  <h4>Validation de la vente</h4>
+
+  <div class="mt-3">
+    <div class="mb-2"><b>Total panier :</b> {{ total_panier|floatformat:2 }} FCFA</div>
+  </div>
+
+  <form method="POST" action="{% url 'valider_panier' %}">
+    {% csrf_token %}
+
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Nom du client</label>
+        <input type="text" name="customer" class="form-control" placeholder="Ex: Abdou Moussa" required>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Mode de paiement</label>
+        <select name="mode_paiement" class="form-select">
+          <option value="Espèce">Espèce</option>
+          <option value="Mobile Money">Mobile Money</option>
+          <option value="Carte">Carte</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <a href="{% url 'panier' %}" class="btn btn-outline-secondary">Retour panier</a>
+      <button type="submit" class="btn btn-success">Confirmer et imprimer</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

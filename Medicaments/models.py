@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 class Categories(models.Model):
     name = models.CharField(max_length=250)
@@ -31,11 +32,14 @@ class Medoc(models.Model):
         return self.name
 
 
+
+
 class Customer(models.Model):
     name = models.CharField(max_length=100)
 
     def __str__(self):
         return self.name
+    
 
 class Vente(models.Model):
     medoc = models.ForeignKey(Medoc, on_delete=models.CASCADE)
@@ -57,4 +61,28 @@ class Facture_client(models.Model):
 
     def __str__(self):
         return f"Reçu - {self.customer.name} / {self.medoc.name}"
+
+class Panier(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Panier #{self.id} - {self.user}"
+
+
+class LignePanier(models.Model):
+    panier = models.ForeignKey(Panier, on_delete=models.CASCADE, related_name="lignes")
+    medoc = models.ForeignKey(Medoc, on_delete=models.PROTECT)
+    quantite = models.PositiveIntegerField(default=1)
+    prix_unitaire = models.DecimalField(max_digits=10, decimal_places=2)
+
+    @property
+    def total_ligne(self):
+        return self.prix_unitaire * self.quantite
+
+    def __str__(self):
+        return f"{self.medoc.name} x{self.quantite}"
+
 

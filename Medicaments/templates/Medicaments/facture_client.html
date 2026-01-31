@@ -9,7 +9,6 @@
   <title>Facture</title>
 
   <style>
-    /* Petit bloc ticket sans casser ton style actuel */
     .infos-pharma{
       margin: 10px 0 15px 0;
       font-size: 14px;
@@ -29,7 +28,6 @@
       border-radius:6px;
       font-size:12px;
     }
-
     @media print{
       #print-button{ display:none; }
     }
@@ -39,14 +37,12 @@
 <body>
   <main>
 
-    <!-- LOGO + IDENTITÉ -->
     <img src="{% static 'logo.png' %}" alt="logo" width="10%">
     <h1>{{ pharmacie_nom|default:"PHARMACIE" }}</h1>
     <p class="muted">{{ pharmacie_adresse|default:"Adresse" }}</p>
     <p class="muted">{{ pharmacie_ville|default:"Ville" }}</p>
     <p class="muted">Tél : (+227) 97 47 17 43 / 90 47 17 43</p>
 
-    <!-- INFOS ADMIN -->
     <div class="infos-pharma">
       <div class="ligne">
         <span>NIF : <strong>{{ pharmacie_nif|default:"-" }}</strong></span>
@@ -64,7 +60,6 @@
 
     <h2>Facture de vente</h2>
 
-    <!-- CLIENT -->
     <table class="client">
       <tr>
         <th>Client</th>
@@ -84,7 +79,6 @@
 
     <hr size="1">
 
-    <!-- DÉTAILS -->
     <table class="description">
       <tbody>
         <tr>
@@ -93,20 +87,20 @@
           <th>PU</th>
           <th>Montant</th>
         </tr>
+
+        {% for l in lignes %}
         <tr>
           <td>
             <strong>
-              {% if produit.name %}{{ produit.name }}{% else %}{{ produit }}{% endif %}
+              {% if l.produit.name %}{{ l.produit.name }}{% else %}{{ l.produit }}{% endif %}
             </strong>
-            <br>
-            <span class="muted">
-              {% if produit.description %}{{ produit.description }}{% endif %}
-            </span>
+            {# ✅ description supprimée #}
           </td>
-          <td>{{ quantite }}</td>
-          <td>{{ prix_unitaire }} FCFA</td>
-          <td><strong>{{ total_amount }} FCFA</strong></td>
+          <td>{{ l.quantite }}</td>
+          <td>{{ l.prix_unitaire }} FCFA</td>
+          <td><strong>{{ l.montant }} FCFA</strong></td>
         </tr>
+        {% endfor %}
       </tbody>
 
       <tfoot>
@@ -126,11 +120,15 @@
 
   </main>
 
+  <!-- ✅ Imprimer sans quitter : ouvre la facture dans un nouvel onglet puis imprime -->
   <button id="print-button" style="background-color: blue; color: aliceblue;">Imprimer</button>
 
   <script>
     document.getElementById("print-button").addEventListener("click", function() {
-      window.print();
+      let newTab = window.open(window.location.href, "_blank");
+      if (newTab) {
+        newTab.onload = function() { newTab.print(); };
+      }
     });
   </script>
 </body>
