@@ -94,19 +94,14 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-more-vertical"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
         
-          <div class="product-cell image">
-            <!-- si il y a une image dans la base de données corespondant  -->
-            {%  if n.image %}
-            <!-- affiche le avec ceci -->
-            <img src="{{n.image.url}}" alt="product">
-            {% else %}
-            <!-- alors "si il n'y a pas d'image dans la base de données pour ce produit" -->
-             <!-- affiche une image par defaut  -->
-            <img src="{% static '1.jpeg' %}" alt="product">
-            {% endif %}
-            <span> {{n.name}}</span>
-           
-          </div>
+         <div class="product-cell image">
+  {% if n.img %}
+    <img src="{{ n.img.url }}" alt="product">
+  {% else %}
+    <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80" alt="product">
+  {% endif %}
+  <span>{{ n.name }}</span>
+</div>
           
         <div class="product-cell category"><span class="cell-label">Category:</span>{{n.category}}</div>
         <div class="product-cell status-cell">

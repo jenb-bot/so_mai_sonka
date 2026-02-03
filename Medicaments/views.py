@@ -193,7 +193,7 @@ def Facture(request, sale_id):
         "total_amount": total_amount,
 
         "pharmacie_nom": "SO MAI SONKA",
-        "pharmacie_adresse": "ADRESSE ICI ",
+        "pharmacie_adresse": "DIFFA ",
         "pharmacie_ville": "DIFFA",
         "pharmacie_tel": "+227 XX XX XX XX",
         "pharmacie_nif": "35291/S",

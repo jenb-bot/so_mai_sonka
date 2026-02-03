@@ -5,31 +5,166 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <link rel="stylesheet" href="{% static 'styleFacture.css' %}">
   <title>Facture</title>
 
   <style>
-    .infos-pharma{
-      margin: 10px 0 15px 0;
-      font-size: 14px;
-      line-height: 1.4;
+    /* ✅ Format imprimante thermique */
+    @page{
+      size: 80mm auto;  /* auto = hauteur selon contenu */
+      margin: 0;
     }
-    .infos-pharma .ligne{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
+
+    *{ box-sizing: border-box; }
+
+    body{
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      color: #000;
     }
+
+    main{
+      width: 80mm;
+      padding: 6mm 4mm; /* marges internes */
+    }
+
     .muted{ opacity: .85; }
+
+    /* ✅ Header ticket */
+    .header{
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+    .logo{
+      width: 16mm;
+      flex: 0 0 16mm;
+    }
+    .logo img{
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+    .pharma{
+      flex: 1;
+    }
+    .pharma h1{
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    .pharma p{
+      margin: 1px 0;
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .separator{
+      border-top: 1px dashed #000;
+      margin: 6px 0;
+    }
+
+    /* ✅ Infos en ticket (2 colonnes compactes) */
+    .infos{
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .infos .ligne{
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 1px 0;
+    }
     .badge{
       display:inline-block;
-      padding:2px 8px;
-      border:1px solid #ccc;
-      border-radius:6px;
-      font-size:12px;
+      padding:1px 6px;
+      border:1px solid #000;
+      border-radius: 10px;
+      font-size: 10px;
     }
+
+    h2{
+      margin: 6px 0 4px 0;
+      font-size: 12px;
+      text-align: center;
+      letter-spacing: .5px;
+    }
+
+    /* ✅ Client / facture */
+    .client{
+      font-size: 11px;
+    }
+    .client .ligne{
+      display:flex;
+      justify-content:space-between;
+      gap: 6px;
+      margin: 2px 0;
+    }
+
+    /* ✅ Table ticket : simple, lisible */
+    table{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    thead th{
+      text-align: left;
+      border-bottom: 1px solid #000;
+      padding: 3px 0;
+    }
+    tbody td{
+      padding: 3px 0;
+      vertical-align: top;
+      border-bottom: 1px dotted #000;
+    }
+
+    .col-qte{ width: 12mm; text-align: center; }
+    .col-pu{ width: 18mm; text-align: right; }
+    .col-mt{ width: 18mm; text-align: right; }
+
+    .prod{
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    /* ✅ Total */
+    .total{
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      display:flex;
+      justify-content: space-between;
+      border-top: 1px solid #000;
+      padding-top: 6px;
+    }
+
+    .note{
+      margin-top: 6px;
+      font-size: 10.5px;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    /* ✅ Bouton masqué à l'impression */
+    #print-button{
+      width: 80mm;
+      margin: 8px 0 0 0;
+      padding: 10px 0;
+      background: #0b57d0;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
     @media print{
       #print-button{ display:none; }
+      main{ padding: 0; width: 80mm; }
     }
   </style>
 </head>
@@ -37,98 +172,102 @@
 <body>
   <main>
 
-    <img src="{% static 'logo.png' %}" alt="logo" width="10%">
-    <h1>{{ pharmacie_nom|default:"PHARMACIE" }}</h1>
-    <p class="muted">{{ pharmacie_adresse|default:"Adresse" }}</p>
-    <p class="muted">{{ pharmacie_ville|default:"Ville" }}</p>
-    <p class="muted">Tél : (+227) 97 47 17 43 / 90 47 17 43</p>
+    <!-- ✅ Header -->
+    <div class="header">
+      <div class="logo">
+        <img src="{% static '10.jpeg' %}" alt="logo">
+      </div>
+      <div class="pharma">
+        <h1>{{ pharmacie_nom|default:"PHARMACIE" }}</h1>
+        <p class="muted">{{ pharmacie_adresse|default:"Adresse" }}</p>
+        <p class="muted">{{ pharmacie_ville|default:"Ville" }}</p>
+        <p class="muted">Tél : (+227) 97 47 17 43 / 90 47 17 43</p>
+      </div>
+    </div>
 
-    <div class="infos-pharma">
+    <div class="separator"></div>
+
+    <!-- ✅ Infos -->
+    <div class="infos">
       <div class="ligne">
         <span>NIF : <strong>{{ pharmacie_nif|default:"-" }}</strong></span>
         <span>RCCM : <strong>{{ pharmacie_rccm|default:"-" }}</strong></span>
       </div>
       <div class="ligne">
-        <span>Vendeur(euse) : <strong>{{ vendeur|default:"-" }}</strong></span>
-        <span>Caissier(ère) : <strong>{{ caissier|default:"-" }}</strong></span>
+        <span>Vendeur : <strong>{{ vendeur|default:"-" }}</strong></span>
+        <span>Caissier : <strong>{{ caissier|default:"-" }}</strong></span>
       </div>
       <div class="ligne">
-        <span>Mode paiement : <strong class="badge">{{ mode_paiement|default:"Espèce" }}</strong></span>
-        <span>Date & Heure : <strong>{{ sale_date|date:"d/m/Y H:i:s" }}</strong></span>
+        <span>Paiement : <strong class="badge">{{ mode_paiement|default:"Espèce" }}</strong></span>
+      </div>
+      <div class="ligne">
+        <span>Date : <strong>{{ sale_date|date:"d/m/Y H:i" }}</strong></span>
       </div>
     </div>
 
-    <h2>Facture de vente</h2>
+    <div class="separator"></div>
 
-    <table class="client">
-      <tr>
-        <th>Client</th>
-        <th>N° de facture</th>
-      </tr>
-      <tr>
-        <td>
-          {% if customer.name %}
-            {{ customer.name }}
-          {% else %}
-            {{ customer }}
-          {% endif %}
-        </td>
-        <td>{{ id }}</td>
-      </tr>
-    </table>
+    <h2>FACTURE</h2>
 
-    <hr size="1">
+    <!-- ✅ Client + facture -->
+    <div class="client">
+      <div class="ligne">
+        <span>Client :</span>
+        <span>
+          <strong>
+          {% if customer.name %}{{ customer.name }}{% else %}{{ customer }}{% endif %}
+          </strong>
+        </span>
+      </div>
+      <div class="ligne">
+        <span>N° :</span>
+        <span><strong>{{ id }}</strong></span>
+      </div>
+    </div>
 
+    <div class="separator"></div>
+
+    <!-- ✅ Produits -->
     <table class="description">
-      <tbody>
+      <thead>
         <tr>
           <th>Désignation</th>
-          <th>Qté</th>
-          <th>PU</th>
-          <th>Montant</th>
+          <th class="col-qte">Qté</th>
+          <th class="col-pu">PU</th>
+          <th class="col-mt">Mt</th>
         </tr>
+      </thead>
 
+      <tbody>
         {% for l in lignes %}
         <tr>
-          <td>
-            <strong>
-              {% if l.produit.name %}{{ l.produit.name }}{% else %}{{ l.produit }}{% endif %}
-            </strong>
-            {# ✅ description supprimée #}
-          </td>
-          <td>{{ l.quantite }}</td>
-          <td>{{ l.prix_unitaire }} FCFA</td>
-          <td><strong>{{ l.montant }} FCFA</strong></td>
+          <td class="prod">{% if l.produit.name %}{{ l.produit.name }}{% else %}{{ l.produit }}{% endif %}</td>
+          <td class="col-qte">{{ l.quantite }}</td>
+          <td class="col-pu">{{ l.prix_unitaire }}</td>
+          <td class="col-mt"><strong>{{ l.montant }}</strong></td>
         </tr>
         {% endfor %}
       </tbody>
-
-      <tfoot>
-        <tr>
-          <td colspan="2">Remarque</td>
-          <td colspan="2">Les produits vendus ne sont ni échangés ni remboursés.</td>
-        </tr>
-        <tr>
-          <td colspan="4">Pour tout souci, voir le vendeur.</td>
-        </tr>
-        <tr>
-          <td colspan="3"><strong>Total TTC</strong></td>
-          <td><strong>{{ total_amount }} FCFA</strong></td>
-        </tr>
-      </tfoot>
     </table>
+
+    <!-- ✅ Total -->
+    <div class="total">
+      <span>Total TTC</span>
+      <span>{{ total_amount }} FCFA</span>
+    </div>
+
+    <div class="note">
+      Les produits vendus ne sont ni échangés ni remboursés.<br>
+      Pour tout souci, voir le vendeur.
+    </div>
 
   </main>
 
-  <!-- ✅ Imprimer sans quitter : ouvre la facture dans un nouvel onglet puis imprime -->
-  <button id="print-button" style="background-color: blue; color: aliceblue;">Imprimer</button>
+  <button id="print-button">Imprimer</button>
 
   <script>
     document.getElementById("print-button").addEventListener("click", function() {
-      let newTab = window.open(window.location.href, "_blank");
-      if (newTab) {
-        newTab.onload = function() { newTab.print(); };
-      }
+      window.print();
     });
   </script>
 </body>
